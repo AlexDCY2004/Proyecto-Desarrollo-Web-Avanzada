@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Banco Bandido de Peluche - Cálculo Financiero</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script defer src="app.js"></script>
+</head>
+
+<body>
+
+  <div class="page-marker top"></div> 
+
+  <div class="container">
+    <div class="topbar">
+      <h1>Banco “Bandido de Peluche”</h1>
+      <h2>Cálculo Financiero de un Cliente</h2>
+    </div>
+
+    <div class="grid">
+      <!-- FORMULARIO -->
+      <div class="card">
+        <h3>Ingresar Datos</h3>
+
+        <!-- Agregado: campo para el nombre del cliente -->
+        <label>Nombre del cliente:</label>
+        <!-- Añadidos: minlength, maxlength, pattern y aria-describedby; required ya estaba -->
+        <input id="nombreCliente" type="text" minlength="2" maxlength="100"
+               pattern="[A-Za-zÀ-ÖØ-öø-ÿÑñ'´`.\\- ]{2,100}"
+               aria-describedby="nombreError" required>
+        <!-- Elemento para mostrar errores de validación -->
+        <span id="nombreError" class="error-message" aria-live="polite"></span>
+
+        <label>Saldo anterior:</label>
+        <input id="saldoAnterior" type="number" step="0.01" required>
+
+        <label>Monto de compras:</label>
+        <input id="montoCompras" type="number" step="0.01" required>
+        <label>Pago realizado:</label>
+        <input id="pagoRealizado" type="number" step="0.01" required>
+
+        <button onclick="calcularCliente()">Calcular Cliente</button>
+      </div>
+
+      <!-- TABLA DE RESULTADOS -->
+      <div class="card table-wrap">
+        <h3>Resultado del Cálculo</h3>
+
+        <table id="resultadoTabla">
+          <thead>
+            <tr>
+              <!-- Encabezados: los que tienen más de dos palabras llevan un <br> para quedar en dos filas -->
+              <th>Nombre del <br> cliente</th>
+              <th>Saldo <br> Anterior</th>
+              <th>Compras</th>
+              <th>Pago <br> Realizado</th>
+              <th>Saldo <br> Base</th>
+              <th>Pago Mínimo Base</th>
+              <th>¿Es Moroso?</th>
+              <th>Interés</th>
+              <th>Multa</th>
+              <th>Saldo <br> Actual</th>
+              <th>Pago <br> Mínimo</th>
+              <th>Pago sin <br> Intereses</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <!-- Actualizado colspan a 12 -->
+              <td colspan="12" class="center muted">Sin datos aún...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
+
+
