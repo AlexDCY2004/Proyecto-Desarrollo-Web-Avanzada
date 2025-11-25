@@ -15,13 +15,15 @@ if (typeof Cliente.associate === 'function') Cliente.associate(models);
 if (typeof ResultadoCliente.associate === 'function') ResultadoCliente.associate(models);
 
 const app = express();
-
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Rutas base
+// monta rutas
 app.use('/api/clientes', clienteRoutes);
+
+// puerto desde .env o 3000
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, ()=> console.log(`Server listening on ${PORT}`));
 
 // Verificar la conexión a la base de datos
 dbConnect(); 
@@ -32,9 +34,4 @@ sequelize.sync({ alter: true }).then(() => {
     console.log('Base de datos sincronizada');
 }).catch((error) => {
     console.error('Error al sincronizar la base de datos:', error);
-});
-// Configuración del puerto
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Servidor Banco Bandido escuchando en http://localhost:${PORT}`);
 });
