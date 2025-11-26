@@ -1,194 +1,213 @@
+import ExcelJS from 'exceljs';
+import PDFDocument from 'pdfkit';
 import Cliente from '../models/Cliente.js';
 import ResultadoCliente from '../models/ResultadoCliente.js';
 import clienteService from '../services/cliente.service.js';
-import { sequelize } from '../config/database.js';
 
-class ClienteController {
-  // Crear cliente en la base de datos
-  static async crearCliente(req, res) {
-    try {
-      const { nombre, saldoAnterior, montoCompras, pagoRealizado } = req.body;
+// Listar todos los resultados (y opcionalmente incluir cliente)
+export const list = async (req, res) => {
+  try {
+    // obtener todos los resultados
+    const resultadosRaw = await ResultadoCliente.findAll({
+      order: [['createdAt', 'DESC']]
+    });
 
-      if (!nombre || saldoAnterior == null || montoCompras == null || pagoRealizado == null) {
-        return res.status(400).json({
-          ok: false,
-          msg: 'Todos los campos son obligatorios.'
-        });
-      }
-      const cliente = await Cliente.create({
-        nombre,
-        saldoAnterior,
-        montoCompras,
-        pagoRealizado,
+    // normalizar a objetos simples
+    const resultados = resultadosRaw.map(r => (typeof r.toJSON === 'function' ? r.toJSON() : r));
+
+    // obtener ids de clientes presentes en los resultados
+    const clienteIds = [...new Set(resultados.map(r => r.clienteId).filter(Boolean))];
+
+    // buscar clientes por ids y construir mapa id->nombre
+    let clientesMap = {};
+    if (clienteIds.length) {
+      const clientes = await Cliente.findAll({
+        where: { id: clienteIds }
       });
-      res.status(201).json({
-        success: true,
-        cliente
-      });
-    } catch (err) {
-      console.error("Error al crear cliente:", err);
-      res.status(500).json({
-        ok: false,
-        msg: "Error al crear el cliente"
-      });
+      clientesMap = clientes.reduce((m, c) => {
+        m[c.id] = c.nombre;
+        return m;
+      }, {});
     }
+
+    // enriquecer resultados: usar nombre del resultado si existe, sino nombre desde Cliente
+    const enriched = resultados.map(r => ({
+      ...r,
+      nombre: (r.nombre && String(r.nombre).trim()) || clientesMap[r.clienteId] || ''
+    }));
+
+    res.json(enriched);
+  } catch (err) {
+    console.error('Error listando resultados:', err);
+    res.status(500).json({ message: 'Error listando resultados' });
   }
+};
 
-  static async calcular(req, res) {
-    const t = await sequelize.transaction();
-    try {
-      const { nombreCliente, saldoAnterior, montoCompras, pagoRealizado } = req.body;
+// Obtener por id
+export const getById = async (req, res) => {
+  try {
+    const id = req.params.id;
+    const resultado = await ResultadoCliente.findByPk(id);
+    if (!resultado) return res.status(404).json({ message: 'Resultado no encontrado' });
+    res.json(resultado);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error obteniendo resultado' });
+  }
+};
 
-      if (!nombreCliente || saldoAnterior == null || montoCompras == null || pagoRealizado == null) {
-        await t.rollback();
-        return res.status(400).json({ ok: false, msg: 'Todos los campos son obligatorios.' });
-      }
+// Crear cliente + calcular y guardar resultado
+export const create = async (req, res) => {
+  try {
+    const { nombre } = req.body;
 
-      // Crear registro Cliente
-      const cliente = await Cliente.create({
-        nombre: nombreCliente,
-        saldoAnterior: Number(saldoAnterior),
-        montoCompras: Number(montoCompras),
-        pagoRealizado: Number(pagoRealizado)
-      }, { transaction: t });
+    // parsear valores numéricos y validar presencia
+    const saldoAnterior = req.body.saldoAnterior !== undefined && req.body.saldoAnterior !== '' 
+      ? Number(req.body.saldoAnterior) 
+      : null;
+    const montoCompras = req.body.montoCompras !== undefined && req.body.montoCompras !== '' 
+      ? Number(req.body.montoCompras) 
+      : null;
+    const pagoRealizado = req.body.pagoRealizado !== undefined && req.body.pagoRealizado !== '' 
+      ? Number(req.body.pagoRealizado) 
+      : null;
 
-      // Calcular resultado
-      const resultado = clienteService.calcularCliente({
-        saldoAnterior: Number(saldoAnterior),
-        montoCompras: Number(montoCompras),
-        pagoRealizado: Number(pagoRealizado)
-      });
-
-      // Guardar ResultadoCliente y asociarlo al cliente creado
-      const resultadoDb = await ResultadoCliente.create({
-        saldoAnterior: resultado.saldoAnterior,
-        montoCompras: resultado.montoCompras,
-        pagoRealizado: resultado.pagoRealizado,
-        saldoBase: resultado.saldoBase,
-        pagoMinimoBase: resultado.pagoMinimoBase,
-        esMoroso: resultado.esMoroso,
-        interes: resultado.interes,
-        multa: resultado.multa,
-        saldoActual: resultado.saldoActual,
-        pagoMinimo: resultado.pagoMinimo,
-        pagoNoIntereses: resultado.pagoNoIntereses,
-        clienteId: cliente.id
-      }, { transaction: t });
-
-      await t.commit();
-
-      // Logs para depuración: confirma que se insertaron registros
-      console.log('Cliente creado:', { id: cliente.id, nombre: cliente.nombre });
-      console.log('ResultadoCliente creado:', { id: resultadoDb.id, clienteId: resultadoDb.clienteId });
-
-      // Devolver el resultado y también IDs creados para verificar en frontend
-      return res.json({
-        ok: true,
-        data: resultado,
-        saved: {
-          clienteId: cliente.id,
-          resultadoId: resultadoDb.id
-        }
-      });
-
-    } catch (err) {
-      await t.rollback();
-      console.error("Error calcular y guardar:", err);
-      return res.status(500).json({
-        ok: false,
-        msg: "Error interno al calcular y guardar datos del cliente"
-      });
+    if (!nombre) return res.status(400).json({ message: 'Falta nombre' });
+    if (saldoAnterior === null || montoCompras === null || pagoRealizado === null) {
+      return res.status(400).json({ message: 'Faltan valores numéricos (saldoAnterior, montoCompras, pagoRealizado)' });
     }
+
+    // Crear cliente incluyendo los campos requeridos por el modelo
+    const cliente = await Cliente.create({ nombre, saldoAnterior, montoCompras, pagoRealizado });
+
+    // Calcular usando el servicio (ya con números)
+    const resultadoCalc = clienteService.calcularCliente({
+      saldoAnterior,
+      montoCompras,
+      pagoRealizado
+    });
+
+    const resultado = await ResultadoCliente.create({
+      clienteId: cliente.id,
+      nombre: nombre,
+      saldoAnterior: resultadoCalc.saldoAnterior,
+      montoCompras: resultadoCalc.montoCompras,
+      pagoRealizado: resultadoCalc.pagoRealizado,
+      saldoBase: resultadoCalc.saldoBase,
+      pagoMinimoBase: resultadoCalc.pagoMinimoBase,
+      esMoroso: resultadoCalc.esMoroso,
+      interes: resultadoCalc.interes,
+      multa: resultadoCalc.multa,
+      saldoActual: resultadoCalc.saldoActual,
+      pagoMinimo: resultadoCalc.pagoMinimo,
+      pagoNoIntereses: resultadoCalc.pagoNoIntereses
+    });
+
+    res.status(201).json(resultado);
+  } catch (err) {
+    // Log completo en consola y devolver detalles para depuración
+    console.error('Error en create cliente:', err);
+    const payload = { message: err.message || 'Error guardando cliente' };
+    if (err.errors && Array.isArray(err.errors)) {
+      payload.details = err.errors.map(e => ({ path: e.path, message: e.message }));
+    }
+    // En desarrollo útil incluir stack (opcional)
+    if (process.env.NODE_ENV !== 'production' && err.stack) payload.stack = err.stack;
+    res.status(500).json(payload);
   }
+};
 
-  // Nuevo: listar resultados guardados
-  static async listar(req, res) {
-    try {
-      console.log('GET /api/clientes - listar called from', req.ip);
+// Exportar Excel (todos los resultados)
+export const exportExcel = async (req, res) => {
+  try {
+    const resultados = await ResultadoCliente.findAll({ order: [['createdAt', 'DESC']] });
 
-      // Intento normal (con include para traer el nombre del cliente)
-      let resultados = await ResultadoCliente.findAll({
-        include: [
-          {
-            model: Cliente,
-            attributes: ['id', 'nombre']
-          }
-        ],
-        order: [['id', 'DESC']]
-      });
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Resultados');
 
-      // Si por alguna razón include no funciona, resultados será [] o lanzará excepción.
-      // Mapear a un formato simple (convertir DECIMAL strings a Number)
-      const mapped = resultados.map(r => ({
+    sheet.columns = [
+      { header: 'ID', key: 'id', width: 8 },
+      { header: 'Nombre', key: 'nombre', width: 30 },
+      { header: 'Saldo Anterior', key: 'saldoAnterior', width: 15 },
+      { header: 'Compras', key: 'montoCompras', width: 15 },
+      { header: 'Pago', key: 'pagoRealizado', width: 15 },
+      { header: 'Moroso', key: 'esMoroso', width: 10 },
+      { header: 'Interés', key: 'interes', width: 12 },
+      { header: 'Multa', key: 'multa', width: 12 },
+      { header: 'Saldo Actual', key: 'saldoActual', width: 15 },
+      { header: 'Pago Mínimo', key: 'pagoMinimo', width: 15 },
+      { header: 'Pago sin Intereses', key: 'pagoNoIntereses', width: 18 },
+      { header: 'Creado', key: 'createdAt', width: 20 }
+    ];
+
+    resultados.forEach(r => {
+      sheet.addRow({
         id: r.id,
-        clienteId: r.clienteId,
-        nombre: r.Cliente ? r.Cliente.nombre : null,
-        saldoAnterior: Number(r.saldoAnterior),
-        montoCompras: Number(r.montoCompras),
-        pagoRealizado: Number(r.pagoRealizado),
-        saldoBase: Number(r.saldoBase),
-        pagoMinimoBase: Number(r.pagoMinimoBase),
-        esMoroso: Boolean(r.esMoroso),
-        interes: Number(r.interes),
-        multa: Number(r.multa),
-        saldoActual: Number(r.saldoActual),
-        pagoMinimo: Number(r.pagoMinimo),
-        pagoNoIntereses: Number(r.pagoNoIntereses),
-        createdAt: r.createdAt,
-        updatedAt: r.updatedAt
-      }));
+        nombre: r.nombre ?? '',
+        saldoAnterior: r.saldoAnterior,
+        montoCompras: r.montoCompras,
+        pagoRealizado: r.pagoRealizado,
+        esMoroso: r.esMoroso ? 'Sí' : 'No',
+        interes: r.interes,
+        multa: r.multa,
+        saldoActual: r.saldoActual,
+        pagoMinimo: r.pagoMinimo,
+        pagoNoIntereses: r.pagoNoIntereses,
+        createdAt: r.createdAt
+      });
+    });
 
-      console.log(`Listado de resultados: ${mapped.length} registros`);
-      return res.json({ ok: true, data: mapped });
+    res.setHeader('Content-Disposition', 'attachment; filename="resultados_clientes.xlsx"');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
-    } catch (err) {
-      // Loguear stack para depuración
-      console.error("Error listar resultados (primera ruta):", err);
-      console.error(err.stack);
-
-      // Intentar fallback: obtener resultados sin include (para evitar fallo por associations)
-      try {
-        console.log("Intentando fallback: findAll sin include...");
-        const resultadosFallback = await ResultadoCliente.findAll({
-          order: [['id', 'DESC']]
-        });
-
-        const mappedFallback = resultadosFallback.map(r => ({
-          id: r.id,
-          clienteId: r.clienteId,
-          nombre: null, // no tenemos el join
-          saldoAnterior: Number(r.saldoAnterior),
-          montoCompras: Number(r.montoCompras),
-          pagoRealizado: Number(r.pagoRealizado),
-          saldoBase: Number(r.saldoBase),
-          pagoMinimoBase: Number(r.pagoMinimoBase),
-          esMoroso: Boolean(r.esMoroso),
-          interes: Number(r.interes),
-          multa: Number(r.multa),
-          saldoActual: Number(r.saldoActual),
-          pagoMinimo: Number(r.pagoMinimo),
-          pagoNoIntereses: Number(r.pagoNoIntereses),
-          createdAt: r.createdAt,
-          updatedAt: r.updatedAt
-        }));
-
-        console.log(`Fallback listado: ${mappedFallback.length} registros`);
-        return res.json({ ok: true, data: mappedFallback, note: 'fallback sin include' });
-      } catch (err2) {
-        console.error("Error listar resultados (fallback):", err2);
-        console.error(err2.stack);
-        // Devolver mensaje de error para depuración en local
-        return res.status(500).json({
-          ok: false,
-          msg: "Error interno al listar resultados",
-          error: err2.message,
-          stack: err2.stack
-        });
-      }
-    }
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error generando Excel' });
   }
-}
+};
 
-export default ClienteController;
+// Exportar PDF (tabla simple)
+export const exportPdf = async (req, res) => {
+  try {
+    const resultados = await ResultadoCliente.findAll({ order: [['createdAt', 'DESC']] });
 
-//agregar validaciones de datos de entrada en el futuro
+    const doc = new PDFDocument({ margin: 30, size: 'A4' });
+    res.setHeader('Content-Disposition', 'attachment; filename="resultados_clientes.pdf"');
+    res.setHeader('Content-Type', 'application/pdf');
+    doc.pipe(res);
+
+    doc.fontSize(18).text('Resultados de Clientes', { align: 'center' });
+    doc.moveDown();
+
+    doc.fontSize(10);
+    const startX = 30;
+    let y = doc.y;
+    const lineHeight = 16;
+
+    // Encabezados
+    doc.text('ID', startX, y);
+    doc.text('Nombre', startX + 40, y);
+    doc.text('Saldo Actual', startX + 260, y, { width: 80, align: 'right' });
+    doc.text('Moroso', startX + 360, y, { width: 60, align: 'center' });
+    y += lineHeight;
+
+    resultados.forEach(r => {
+      doc.text(String(r.id), startX, y);
+      doc.text(String(r.nombre ?? ''), startX + 40, y, { width: 200 });
+      doc.text(Number(r.saldoActual ?? 0).toFixed(2), startX + 260, y, { width: 80, align: 'right' });
+      doc.text(r.esMoroso ? 'Sí' : 'No', startX + 360, y, { width: 60, align: 'center' });
+      y += lineHeight;
+      if (y > 750) { doc.addPage(); y = 40; }
+    });
+
+    doc.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error generando PDF' });
+  }
+};
+
+// Export default también por compatibilidad con imports default
+export default { list, getById, create, exportExcel, exportPdf };
