@@ -78,7 +78,7 @@ function App() {
             <ClientList results={results} loading={loading} />
 
             <div className="export-row-mobile" style={{ marginTop: 12 }}>
-              <ExportButtons />
+              <ExportButtons results={results} />
             </div>
           </div>
         </div>
