@@ -7,12 +7,38 @@ import clienteService from '../services/cliente.service.js';
 // Listar todos los resultados (y opcionalmente incluir cliente)
 export const list = async (req, res) => {
   try {
-    const resultados = await ResultadoCliente.findAll({
+    // obtener todos los resultados
+    const resultadosRaw = await ResultadoCliente.findAll({
       order: [['createdAt', 'DESC']]
     });
-    res.json(resultados);
+
+    // normalizar a objetos simples
+    const resultados = resultadosRaw.map(r => (typeof r.toJSON === 'function' ? r.toJSON() : r));
+
+    // obtener ids de clientes presentes en los resultados
+    const clienteIds = [...new Set(resultados.map(r => r.clienteId).filter(Boolean))];
+
+    // buscar clientes por ids y construir mapa id->nombre
+    let clientesMap = {};
+    if (clienteIds.length) {
+      const clientes = await Cliente.findAll({
+        where: { id: clienteIds }
+      });
+      clientesMap = clientes.reduce((m, c) => {
+        m[c.id] = c.nombre;
+        return m;
+      }, {});
+    }
+
+    // enriquecer resultados: usar nombre del resultado si existe, sino nombre desde Cliente
+    const enriched = resultados.map(r => ({
+      ...r,
+      nombre: (r.nombre && String(r.nombre).trim()) || clientesMap[r.clienteId] || ''
+    }));
+
+    res.json(enriched);
   } catch (err) {
-    console.error(err);
+    console.error('Error listando resultados:', err);
     res.status(500).json({ message: 'Error listando resultados' });
   }
 };
