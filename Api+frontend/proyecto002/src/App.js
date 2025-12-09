@@ -34,7 +34,6 @@ function App() {
     try {
       const creado = await crearProducto(productoNuevo);
 
-      // asignar siempre id secuencial local (max local + 1) y agregar al final
       let creadoConId;
       setProductos((prev) => {
         const maxId = prev.reduce((m, it) => {

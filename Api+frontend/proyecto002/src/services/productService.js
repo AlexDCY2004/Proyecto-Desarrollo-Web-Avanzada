@@ -1,9 +1,7 @@
 //servicio, traer la api
 const BASE_URL = "https://dummyjson.com/products"
 
-// helper: generar id único en frontend (fallback si la API no devuelve id)
 function generarId() {
-	// usar timestamp + aleatorio para minimizar colisiones
 	return Date.now() + Math.floor(Math.random() * 1000);
 }
 
