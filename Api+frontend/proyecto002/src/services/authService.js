@@ -1,25 +1,24 @@
-const BASE_URL = "http://localhost:5000/api/auth";
+const BASE_URL = "http://localhost:3001";
 
 export async function login(username, password) {
   try {
-    const resp = await fetch(`${BASE_URL}/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password })
-    });
-
-    if (!resp.ok) {
-      const error = await resp.json();
-      throw new Error(error.error || 'Error al iniciar sesión');
+    // Obtener todos los usuarios del JSON
+    const resp = await fetch(`${BASE_URL}/usuarios`);
+    const usuarios = await resp.json();
+    
+    const usuario = usuarios.find(u => u.username === username);
+    
+    if (!usuario || usuario.password !== password) {
+      throw new Error('Credenciales inválidas');
     }
 
-    const data = await resp.json();
+    // Simular token (json-server no tiene auth, así que usamos el ID)
+    const token = btoa(JSON.stringify({ id: usuario.id, username: usuario.username }));
     
-    // Guardar token y usuario en localStorage
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('usuario', JSON.stringify(data.usuario));
+    localStorage.setItem('token', token);
+    localStorage.setItem('usuario', JSON.stringify(usuario));
     
-    return data;
+    return { token, usuario };
   } catch (err) {
     throw err;
   }
@@ -41,25 +40,4 @@ export function obtenerToken() {
 
 export function estaAutenticado() {
   return !!obtenerToken();
-}
-
-export async function obtenerPerfil() {
-  const token = obtenerToken();
-  
-  if (!token) throw new Error('No hay sesión activa');
-
-  try {
-    const resp = await fetch(`${BASE_URL}/perfil`, {
-      headers: { 
-        "Authorization": `Bearer ${token}` 
-      }
-    });
-
-    if (!resp.ok) throw new Error('Token inválido o expirado');
-
-    return await resp.json();
-  } catch (err) {
-    logout(); // Limpiar sesión si el token es inválido
-    throw err;
-  }
 }

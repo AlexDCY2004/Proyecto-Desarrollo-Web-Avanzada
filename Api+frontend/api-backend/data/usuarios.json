@@ -1,0 +1,74 @@
+{
+  "usuarios": [
+    {
+      "id": 1,
+      "username": "admin",
+      "password": "$2a$10$8K1p/a0dL3.rN8Vx9zQ0eO7J6vZ5xQ2H3K4L5M6N7O8P9Q0R1S2T3",
+      "rol": "admin",
+      "nombre": "Administrador Sistema",
+      "email": "admin@sistema.com",
+      "activo": true
+    },
+    {
+      "id": 2,
+      "username": "docente1",
+      "password": "$2a$10$8K1p/a0dL3.rN8Vx9zQ0eO7J6vZ5xQ2H3K4L5M6N7O8P9Q0R1S2T3",
+      "rol": "docente",
+      "nombre": "Prof. Juan Pérez",
+      "email": "jperez@sistema.com",
+      "activo": true
+    },
+    {
+      "id": 3,
+      "username": "estudiante1",
+      "password": "$2a$10$8K1p/a0dL3.rN8Vx9zQ0eO7J6vZ5xQ2H3K4L5M6N7O8P9Q0R1S2T3",
+      "rol": "estudiante",
+      "nombre": "María García",
+      "email": "mgarcia@sistema.com",
+      "cedula": "1234567890",
+      "activo": true
+    }
+  ],
+  "estudiantes": [
+    {
+      "id": 1,
+      "nombre": "Juan Doe",
+      "cedula": "1001234567",
+      "email": "juan@ejemplo.com",
+      "curso": "10-A",
+      "activo": true
+    },
+    {
+      "id": 2,
+      "nombre": "María López",
+      "cedula": "1001234568",
+      "email": "maria@ejemplo.com",
+      "curso": "10-B",
+      "activo": true
+    }
+  ],
+  "docentes": [
+    {
+      "id": 1,
+      "nombre": "Prof. Carlos Mendez",
+      "cedula": "0987654321",
+      "especialidad": "Matemáticas",
+      "email": "cmendez@ejemplo.com",
+      "activo": true
+    }
+  ],
+  "notas": [
+    {
+      "id": 1,
+      "estudianteId": 1,
+      "docenteId": 1,
+      "asignatura": "Matemáticas",
+      "parcial": 1,
+      "tarea": 18,
+      "informe": 15,
+      "leccion": 20,
+      "examen": 12,
+      "notaFinal": 15.4
+    }
+  ]
+}
