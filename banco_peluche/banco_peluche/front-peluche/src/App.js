@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import './App.css';
-import ClientForm from './components/ClientForm';
-import ClientList from './components/ClientList';
-import ExportButtons from './components/ExportButtons';
-import StatsPanel from './components/StatsPanel';
+import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import Register from './views/Register';
+import Clients from './views/Clients';
+import Dashboard from './views/Dashboard';
 import api from './api/axiosInstance';
 
 function App() {
   const [results, setResults] = useState([]);
   const [latest, setLatest] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [clienteParaEditar, setClienteParaEditar] = useState(null);
+  const location = useLocation();
 
   const loadResults = async () => {
     try {
@@ -31,12 +34,29 @@ function App() {
   const handleSaved = (created) => {
     const item = created?.data ?? created;
     if (!item) return;
+
+    // Si fue eliminado, remover de lista
+    if (item.deleted) {
+      setResults(prev => prev.filter(r => r.id !== item.id));
+      return;
+    }
+
     setLatest(item);
     setResults(prev => [item, ...prev.filter(r => r.id !== item.id)]);
   };
 
+  const openModal = (cliente = null) => {
+    setClienteParaEditar(cliente);
+    setModalOpen(true);
+  };
+
   return (
     <div className="app-root">
+      <div className="brand-topbar">
+        <div className="container brand-inner">
+          <div className="brand-title">Banco de Peluche</div>
+        </div>
+      </div>
       <div className="bg-decor">
         <span className="blob b1" />
         <span className="blob b2" />
@@ -45,49 +65,25 @@ function App() {
 
       <header className="hero">
         <div className="container hero-inner">
-          <div className="hero-text">
-            <h1>Banco “Bandido de Peluche”</h1>
-            <p className="subtitle">Cálculo Financiero de un Cliente</p>
+          <div className="container" style={{ padding: '0 20px' }}>
+            <nav className="nav-tabs">
+              <Link className={`tab ${location.pathname === '/' ? 'active' : ''}`} to="/">Registro</Link>
+              <Link className={`tab ${location.pathname.startsWith('/clientes') ? 'active' : ''}`} to="/clientes">Ver y Buscar</Link>
+              <Link className={`tab ${location.pathname.startsWith('/dashboard') ? 'active' : ''}`} to="/dashboard">Estadísticas</Link>
+            </nav>
           </div>
         </div>
       </header>
 
-      <main className="container layout">
-        <div className="left-col">
-          <div className="card">
-            <ClientForm onSaved={handleSaved} />
-          </div>
-        </div>
-
-        <div className="right-col">
-          <div className="card-group">
-            {latest && (
-              <div className="card" style={{ marginBottom: 12 }}>
-                <h3>Resultado Individual (último)</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <div><strong>Nombre</strong><div>{latest.nombre ?? '-'}</div></div>
-                  <div><strong>Moroso</strong><div>{latest.esMoroso ? 'Sí' : 'No'}</div></div>
-                  <div><strong>Saldo Actual</strong><div>{Number(latest.saldoActual ?? 0).toFixed(2)}</div></div>
-                  <div><strong>Interés</strong><div>{Number(latest.interes ?? 0).toFixed(2)}</div></div>
-                  <div><strong>Multa</strong><div>{Number(latest.multa ?? 0).toFixed(2)}</div></div>
-                  <div><strong>Pago sin Intereses</strong><div>{Number(latest.pagoNoIntereses ?? 0).toFixed(2)}</div></div>
-                </div>
-              </div>
-            )}
-
-            <ClientList results={results} loading={loading} />
-
-            <div className="export-row-mobile" style={{ marginTop: 12 }}>
-              <ExportButtons results={results} />
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* Estadísticas abajo, a todo el ancho */}
-      <div className="container" style={{ marginTop: 18 }}>
-        <StatsPanel results={results} />
+      <div className="container" style={{ marginTop: 12 }}>
+        <Routes>
+          <Route path="/" element={<Register />} />
+          <Route path="/clientes" element={<Clients />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Routes>
       </div>
+
+      {/* Vistas ahora separadas por rutas */}
     </div>
   );
 }

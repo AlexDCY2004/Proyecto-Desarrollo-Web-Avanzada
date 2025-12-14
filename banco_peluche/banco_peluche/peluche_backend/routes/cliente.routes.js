@@ -25,5 +25,7 @@ router.post('/', resolve('create', 'createAndCalculate', 'crearCliente', 'calcul
 router.post('/calcular', resolve('createAndCalculate', 'calcular'));
 router.post('/crear', resolve('create', 'crearCliente'));
 router.get('/:id', resolve('getById', 'findById', 'obtener'));
+router.put('/:id', resolve('update', 'actualizar', 'updateCliente'));
+router.delete('/:id', resolve('delete', 'delete_cliente', 'eliminar', 'deleteCliente'));
 
 export default router;

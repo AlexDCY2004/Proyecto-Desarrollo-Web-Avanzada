@@ -2,7 +2,7 @@
 import React from 'react';
 
 function toNum(v) {
-  return Number(v ?? 0) || 0;
+  return Math.max(0, Number(v ?? 0) || 0);
 }
 function isMoroso(item) {
   // soportar varias claves
@@ -25,12 +25,27 @@ export default function StatsPanel({ results = [] }) {
   const format = (n) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const exportPDF = () => {
+    // Capturar los SVGs de los gráficos si existen
+    const svgs = Array.from(document.querySelectorAll('.card svg'));
+    const serializer = new XMLSerializer();
+    const images = svgs.slice(0, 2).map(svg => {
+      const str = serializer.serializeToString(svg);
+      const encoded = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(str);
+      return encoded;
+    });
+
+    const chartsHtml = images.map((src, i) => `
+      <div style="margin-top:16px; text-align:center;">
+        <img src="${src}" alt="Gráfico ${i+1}" style="max-width:420px; width:100%; border:1px solid #e6edf3; border-radius:6px;" />
+      </div>
+    `).join('');
+
     const html = `
       <html>
         <head>
           <title>Estadísticas - Banco Peluche</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 24px; color:#012a56; }
+            body { font-family: Arial, sans-serif; padding: 24px; color:#0b1220; }
             h2 { color:#0357a6; }
             table { width:100%; border-collapse: collapse; margin-top:12px; }
             td, th { padding:8px 10px; border-bottom:1px solid #e6edf3; text-align:left; }
@@ -46,6 +61,7 @@ export default function StatsPanel({ results = [] }) {
             <tr><th>Promedio interés (morosos)</th><td>${format(avgInteresMorosos)}</td></tr>
             <tr><th>Suma de saldos (todos)</th><td>${format(sumSaldos)}</td></tr>
           </table>
+          ${chartsHtml}
         </body>
       </html>
     `;
@@ -54,8 +70,7 @@ export default function StatsPanel({ results = [] }) {
     w.document.write(html);
     w.document.close();
     w.focus();
-    // dar tiempo a pintar y abrir diálogo de impresión
-    setTimeout(() => w.print(), 300);
+    setTimeout(() => w.print(), 400);
   };
 
   return (
