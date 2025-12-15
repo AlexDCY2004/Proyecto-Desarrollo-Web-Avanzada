@@ -78,6 +78,16 @@ export const crearPoliza = async (req, res) => {
 
     } catch (error) {
         console.error("Error en crearPoliza:", error);
+        
+        if (error.name === "SequelizeValidationError") {
+            const errores = error.errors.map(e => e.message);
+            return res.status(400).json({ mensaje: "Error de validación", errores });
+        }
+        
+        if (error.name === "SequelizeUniqueConstraintError") {
+            return res.status(400).json({ mensaje: "El número de póliza ya existe" });
+        }
+        
         res.status(500).json({ mensaje: "Error al crear la póliza", error: error.message });
     }
 };
@@ -88,7 +98,7 @@ export const listarPolizas = async (req, res) => {
             include: [
                 {
                     model: Cotizacion,
-                    include: [Usuario, Vehiculo, Conductor]
+                    attributes: ['id', 'id_usuario', 'id_conductor', 'id_vehiculo', 'costo_base', 'costo_final', 'estado', 'fecha_emision']
                 }
             ]
         });
@@ -102,6 +112,7 @@ export const listarPolizas = async (req, res) => {
 
         res.json(polizasConVigencia);
     } catch (error) {
+        console.error("Error en listarPolizas:", error);
         res.status(500).json({ mensaje: "Error al listar las pólizas", error: error.message });
     }
 };

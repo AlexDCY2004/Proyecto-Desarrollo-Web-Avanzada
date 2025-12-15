@@ -36,29 +36,46 @@ const GestionPolizas = () => {
                 api.get('/cotizaciones'),
                 api.get('/polizas')
             ]);
-            setCotizaciones(resCot.data);
-            setPolizas(resPol.data);
+            setCotizaciones(resCot.data || []);
+            setPolizas(resPol.data || []);
         } catch (error) {
-            console.error(error);
-            toast.current.show({ severity: 'error', summary: 'Error', detail: 'Error al cargar datos' });
+            console.error('Error detallado:', error.response?.data || error.message);
+            const errorMsg = error.response?.data?.mensaje || 'Error al cargar datos';
+            toast.current.show({ severity: 'error', summary: 'Error', detail: errorMsg });
         } finally {
             setLoading(false);
         }
     };
 
     const handleCreatePoliza = async () => {
-        if (!selectedCotizacion) return;
+        if (!selectedCotizacion) {
+            toast.current.show({ severity: 'error', summary: 'Error', detail: 'Selecciona una cotización' });
+            return;
+        }
+        
+        if (selectedCotizacion.estado !== 'Aprobada') {
+            toast.current.show({ severity: 'error', summary: 'Error', detail: `Solo se pueden crear pólizas de cotizaciones Aprobadas. Esta está: ${selectedCotizacion.estado}` });
+            return;
+        }
+        
         try {
+            // Formatear la fecha correctamente
+            const fechaStr = fechaInicio instanceof Date 
+                ? fechaInicio.toISOString().split('T')[0]
+                : new Date(fechaInicio).toISOString().split('T')[0];
+            
             await api.post('/polizas', {
                 id_cotizacion: selectedCotizacion.id,
-                fecha_inicio: fechaInicio
+                fecha_inicio: fechaStr
             });
             toast.current.show({ severity: 'success', summary: 'Éxito', detail: 'Póliza creada correctamente' });
             setShowModal(false);
+            setSelectedCotizacion(null);
             fetchData();
         } catch (error) {
-            console.error(error);
-            toast.current.show({ severity: 'error', summary: 'Error', detail: 'Error al crear la póliza.' });
+            console.error('Error detallado:', error.response?.data || error.message);
+            const errorMsg = error.response?.data?.mensaje || 'Error al crear la póliza';
+            toast.current.show({ severity: 'error', summary: 'Error', detail: errorMsg, life: 5000 });
         }
     };
 
@@ -69,8 +86,9 @@ const GestionPolizas = () => {
             setShowDetailModal(false);
             fetchData();
         } catch (error) {
-            console.error(error);
-            toast.current.show({ severity: 'error', summary: 'Error', detail: 'Error al aprobar' });
+            console.error('Error:', error.response?.data || error.message);
+            const errorMsg = error.response?.data?.mensaje || 'Error al aprobar';
+            toast.current.show({ severity: 'error', summary: 'Error', detail: errorMsg });
         }
     };
 
@@ -81,8 +99,9 @@ const GestionPolizas = () => {
             setShowDetailModal(false);
             fetchData();
         } catch (error) {
-            console.error(error);
-            toast.current.show({ severity: 'error', summary: 'Error', detail: 'Error al rechazar' });
+            console.error('Error:', error.response?.data || error.message);
+            const errorMsg = error.response?.data?.mensaje || 'Error al rechazar';
+            toast.current.show({ severity: 'error', summary: 'Error', detail: errorMsg });
         }
     };
 
