@@ -3,13 +3,14 @@ import { Vehiculo } from "../models/vehiculo.js";
 // Crear vehículo
 export const crearVehiculo = async (req, res) => {
     try {
-        const { modelo, color, tipo, uso, precio } = req.body;
-        if (!modelo || !color || !tipo || !uso || !precio) {
-            return res.status(400).json({ mensaje: "Faltan datos requeridos: modelo, color, tipo, uso o precio" });
+        const { modelo, anio, color, tipo, uso, precio } = req.body;
+        if (!modelo || !anio || !color || !tipo || !uso || !precio) {
+            return res.status(400).json({ mensaje: "Faltan datos requeridos: modelo, año, color, tipo, uso o precio" });
         }
 
         const nuevo = await Vehiculo.create({
             modelo,
+            anio,
             color,
             tipo,
             uso,

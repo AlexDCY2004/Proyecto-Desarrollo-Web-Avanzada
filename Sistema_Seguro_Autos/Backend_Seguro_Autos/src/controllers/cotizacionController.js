@@ -8,7 +8,7 @@ import { MetodoPago } from "../models/metodoPago.js";
 export const crearCotizacion = async (req, res) => {
     try {
         const { id_usuario, id_conductor, id_vehiculo, id_pago } = req.body;
-        
+
         if (id_usuario == null || id_conductor == null || id_vehiculo == null || id_pago == null) {
             return res.status(400).json({ mensaje: "Faltan datos requeridos: id_usuario, id_conductor, id_vehiculo o id_pago" });
         }
@@ -86,8 +86,8 @@ export const actualizarCotizacion = async (req, res) => {
 
         const { id_usuario, id_conductor, id_vehiculo, id_pago, costo_base, descuento, recargo, costo_final, estado, motivo_rechazo, fecha_caducidad } = req.body;
 
-        if (id_usuario == null && id_conductor == null && id_vehiculo == null && id_pago == null && 
-            costo_base == null && descuento == null && recargo == null && costo_final == null && 
+        if (id_usuario == null && id_conductor == null && id_vehiculo == null && id_pago == null &&
+            costo_base == null && descuento == null && recargo == null && costo_final == null &&
             estado == null && motivo_rechazo == null && fecha_caducidad == null) {
             return res.status(400).json({ mensaje: "No hay campos válidos para actualizar" });
         }
@@ -125,5 +125,37 @@ export const eliminarCotizacion = async (req, res) => {
         res.json({ mensaje: "Cotización eliminada correctamente" });
     } catch (error) {
         res.status(500).json({ mensaje: "Error al eliminar la cotización", error: error.message });
+    }
+};
+
+export const cambiarEstadoCotizacion = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { estado, motivo_rechazo } = req.body; // 'Aprobada' o 'Rechazada'
+
+        if (!['Aprobada', 'Rechazada', 'Pendiente'].includes(estado)) {
+            return res.status(400).json({ message: "Estado inválido. Use: Aprobada, Rechazada, Pendiente" });
+        }
+
+        const cotizacion = await Cotizacion.findByPk(id);
+        if (!cotizacion) {
+            return res.status(404).json({ message: "Cotización no encontrada" });
+        }
+
+        cotizacion.estado = estado;
+        if (estado === 'Rechazada' && motivo_rechazo) {
+            cotizacion.motivo_rechazo = motivo_rechazo;
+        }
+
+        // Usamos save({ hooks: false }) si quisieramos evitar re-validaciones, 
+        // pero aqui esta bien que valide tipos.
+        // OJO: El hook beforeValidate puede sobrescribir el estado si recalculamos.
+        // Para cambio de estado Manual, mejor update directo.
+        await cotizacion.update({ estado, motivo_rechazo });
+
+        res.json(cotizacion);
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
     }
 };

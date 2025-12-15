@@ -8,71 +8,72 @@ import { MetodoPago } from "./metodoPago.js";
 export const Cotizacion = sequelize.define(
     'Cotizacion',
     {
-        id: { 
-            type: DataTypes.INTEGER, 
-            primaryKey: true, 
+        id: {
+            type: DataTypes.INTEGER,
+            primaryKey: true,
             autoIncrement: true,
             field: 'ID_COTIZACION'
         },
-        id_usuario: { 
-            type: DataTypes.INTEGER, 
+        id_usuario: {
+            type: DataTypes.INTEGER,
             allowNull: true,
             field: 'ID_USUARIO'
         },
-        id_vehiculo: { 
-            type: DataTypes.INTEGER, 
+        id_vehiculo: {
+            type: DataTypes.INTEGER,
             allowNull: true,
             field: 'ID_VEHICULO'
         },
-        id_pago: { 
-            type: DataTypes.INTEGER, 
+        id_pago: {
+            type: DataTypes.INTEGER,
             allowNull: true,
             field: 'ID_PAGO'
         },
-        id_conductor: { 
-            type: DataTypes.INTEGER, 
+        id_conductor: {
+            type: DataTypes.INTEGER,
             allowNull: true,
             field: 'ID_CONDUCTOR'
         },
-        fecha_emision: { 
-            type: DataTypes.DATE, 
+        fecha_emision: {
+            type: DataTypes.DATE,
             allowNull: false,
             field: 'COTIZACION_FECHA_EMISION'
         },
-        costo_base: { 
-            type: DataTypes.FLOAT, 
+        costo_base: {
+            type: DataTypes.FLOAT,
             allowNull: false,
             field: 'COTIZACION_COSTO_BASE'
         },
-        descuento: { 
-            type: DataTypes.FLOAT, 
+        descuento: {
+            type: DataTypes.FLOAT,
             allowNull: false,
             field: 'COTIZACION_DESCUENTO'
         },
-        recargo: { 
-            type: DataTypes.FLOAT, 
+        recargo: {
+            type: DataTypes.FLOAT,
             allowNull: false,
             defaultValue: 0,
             field: 'COTIZACION_RECARGO'
         },
-        costo_final: { 
-            type: DataTypes.FLOAT, 
+        costo_final: {
+            type: DataTypes.FLOAT,
             allowNull: false,
             field: 'COTIZACION_COSTO_FINAL'
         },
-        fecha_caducidad: { 
-            type: DataTypes.DATE, 
+        fecha_caducidad: {
+            type: DataTypes.DATE,
             allowNull: false,
             field: 'COTIZACION_FECHA_CADUCIDAD'
         },
-        estado: { 
-            type: DataTypes.BOOLEAN, 
+        estado: {
+            type: DataTypes.STRING(16),
             allowNull: false,
+            defaultValue: 'Pendiente',
             field: 'COTIZACION_ESTADO'
         },
-        motivo_rechazo: { 
-            type: DataTypes.TEXT, 
-            allowNull: true 
+        motivo_rechazo: {
+            type: DataTypes.TEXT,
+            allowNull: true
         }
     },
     {
@@ -94,7 +95,7 @@ export const Cotizacion = sequelize.define(
                 }
 
                 // COSTO BASE = Precio del vehículo
-                let costoBase = parseFloat(vehiculo.precio.replace(/[^0-9.-]+/g,""));
+                let costoBase = parseFloat(vehiculo.precio.replace(/[^0-9.-]+/g, ""));
 
                 // --- Reglas Conductor ---
                 const edad = conductor.edad;
@@ -125,7 +126,13 @@ export const Cotizacion = sequelize.define(
                 if (vehiculo.tipo.toLowerCase().includes('suv') || vehiculo.tipo.toLowerCase().includes('camioneta')) {
                     recargo += costoBase * 0.15; // Incremento por tipo
                 }
-                
+
+                // Check Antigüedad > 20 años
+                const anioActual = new Date().getFullYear();
+                if (vehiculo.anio && (anioActual - vehiculo.anio > 20)) {
+                    rechazo.push("Vehículo con más de 20 años de antigüedad");
+                }
+
                 if (vehiculo.uso.toLowerCase() === 'comercial') {
                     recargo += costoBase * 0.15;
                 }
@@ -149,11 +156,14 @@ export const Cotizacion = sequelize.define(
 
                 // --- Validación Final ---
                 if (rechazo.length > 0) {
-                    cotizacion.estado = false; // Rechazada/Invalida
+                    cotizacion.estado = 'Rechazada';
                     cotizacion.motivo_rechazo = rechazo.join("; ");
                 } else {
-                    cotizacion.estado = true; // Aprobada/Valida
-                    cotizacion.motivo_rechazo = null;
+                    // Si no hay rechazo automático, revisar si es un cambio manual de estado
+                    if (cotizacion.estado !== 'Aprobada' && cotizacion.estado !== 'Rechazada') {
+                        cotizacion.estado = 'Pendiente';
+                        cotizacion.motivo_rechazo = null;
+                    }
                 }
             }
         }

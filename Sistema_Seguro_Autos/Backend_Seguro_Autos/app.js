@@ -12,6 +12,7 @@ import conductorRoute from './src/routes/conductorRoute.js';
 import vehiculoRoute from './src/routes/vehiculoRoute.js';
 import metodoPagoRoute from './src/routes/metodoPagoRoute.js';
 import cotizacionRoute from './src/routes/cotizacionRoute.js';
+import polizaRoute from './src/routes/polizaRoute.js';
 
 
 
@@ -39,6 +40,7 @@ app.use('/api/conductores', conductorRoute);
 app.use('/api/vehiculos', vehiculoRoute);
 app.use('/api/metodos-pago', metodoPagoRoute);
 app.use('/api/cotizaciones', cotizacionRoute);
+app.use('/api/polizas', polizaRoute);
 
 
 
