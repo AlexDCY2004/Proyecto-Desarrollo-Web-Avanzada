@@ -73,15 +73,25 @@ export const crearCotizacion = async (req, res) => {
             acepta_terminos: true
         });
 
-        // Devolver la cotización completa con datos calculados
-        res.status(201).json({
-            mensaje: nuevo.estado === 'Rechazada' ? "Cotización rechazada automáticamente" : "Cotización creada exitosamente",
-            estado: nuevo.estado,
+        console.log("Cotización creada con valores:", {
+            id: nuevo.id,
             costo_base: nuevo.costo_base,
             recargo: nuevo.recargo,
             descuento: nuevo.descuento,
             costo_final: nuevo.costo_final,
+            estado: nuevo.estado
+        });
+
+        // Devolver la cotización completa con datos calculados
+        res.status(201).json({
+            mensaje: nuevo.estado === 'Rechazada' ? "Cotización rechazada automáticamente" : "Cotización creada exitosamente",
+            estado: nuevo.estado,
+            costo_base: nuevo.costo_base || 0,
+            recargo: nuevo.recargo || 0,
+            descuento: nuevo.descuento || 0,
+            costo_final: nuevo.costo_final || 0,
             motivo_rechazo: nuevo.motivo_rechazo,
+            id: nuevo.id,
             cotizacion: nuevo
         });
     } catch (err) {
