@@ -7,6 +7,7 @@ import { Button } from 'primereact/button';
 import { InputText } from 'primereact/inputtext';
 import { InputNumber } from 'primereact/inputnumber';
 import { Dropdown } from 'primereact/dropdown';
+import { Checkbox } from 'primereact/checkbox';
 import { Toast } from 'primereact/toast';
 import { Message } from 'primereact/message';
 import { Tag } from 'primereact/tag';
@@ -19,13 +20,14 @@ const Cotizar = () => {
     const toast = useRef(null);
     const [loading, setLoading] = useState(false);
     const [resultado, setResultado] = useState(null);
+    const [aceptaTerminos, setAceptaTerminos] = useState(false);
 
     // Form States
     const [conductor, setConductor] = useState({
-        nombre: '', apellido: '', edad: 18, tipo_licencia: 'Tipo B', telefono: '', accidentes_cantidad: 0
+        nombre: '', apellido: '', edad: 18, tipo_licencia: 'B', telefono: '', accidentes_cantidad: 0
     });
     const [vehiculo, setVehiculo] = useState({
-        modelo: '', anio: 2024, color: '', tipo: 'Sedan', uso: 'Personal', precio: '0'
+        modelo: '', anio: 2024, color: '', tipo: 'Sedan', uso: 'Personal', precio: 0
     });
     const [pago, setPago] = useState({
         tipo: 'Tarjeta de Crédito', estado_validacion: 'Aprobado'
@@ -33,9 +35,11 @@ const Cotizar = () => {
 
     // Options
     const tiposLicencia = [
-        { label: 'Tipo A', value: 'Tipo A' },
-        { label: 'Tipo B', value: 'Tipo B' },
-        { label: 'Tipo C', value: 'Tipo C' }
+        { label: 'Tipo A', value: 'A' },
+        { label: 'Tipo B', value: 'B' },
+        { label: 'Tipo C', value: 'C' },
+        { label: 'Tipo D', value: 'D' },
+        { label: 'Tipo E', value: 'E' }
     ];
     const tiposVehiculo = [
         { label: 'Sedan', value: 'Sedan' },
@@ -91,6 +95,11 @@ const Cotizar = () => {
     };
 
     const procesarCotizacion = async () => {
+        if (!aceptaTerminos) {
+            toast.current.show({ severity: 'error', summary: 'Error', detail: 'Debe aceptar los términos y condiciones' });
+            return;
+        }
+
         setLoading(true);
         try {
             // 1. Crear Conductor
@@ -111,20 +120,18 @@ const Cotizar = () => {
                 id_conductor: idConductor,
                 id_vehiculo: idVehiculo,
                 id_pago: idPago,
-                fecha_emision: new Date(),
-                costo_base: 0, // Backend calcula
-                costo_final: 0, // Backend calcula
-                fecha_caducidad: new Date(new Date().setDate(new Date().getDate() + 30)), // +30 dias
-                estado: true // Backend recalcula esto
+                acepta_terminos: aceptaTerminos
             };
 
             const resCotizacion = await api.post('/cotizaciones', payloadCotizacion);
+            // Guardar los datos de la respuesta directamente
             setResultado(resCotizacion.data);
             toast.current.show({ severity: 'success', summary: 'Éxito', detail: 'Cotización generada correctamente' });
 
         } catch (error) {
-            console.error(error);
-            toast.current.show({ severity: 'error', summary: 'Error', detail: 'Error al procesar la cotización' });
+            console.error('Error detallado:', error.response?.data || error.message);
+            const errorMsg = error.response?.data?.mensaje || error.response?.data?.errores?.join(', ') || 'Error al procesar la cotización';
+            toast.current.show({ severity: 'error', summary: 'Error', detail: errorMsg, life: 5000 });
         } finally {
             setLoading(false);
         }
@@ -203,7 +210,27 @@ const Cotizar = () => {
             <div className="text-center">
                 <h3>Resumen de la solicitud</h3>
                 <p>Por favor confirma que todos los datos son correctos antes de enviar.</p>
-                <Button label="GENERAR COTIZACIÓN" icon="pi pi-check" onClick={procesarCotizacion} loading={loading} />
+                
+                <div className="my-4 text-left">
+                    <div className="flex align-items-center gap-2">
+                        <Checkbox 
+                            inputId="terminos" 
+                            checked={aceptaTerminos} 
+                            onChange={(e) => setAceptaTerminos(e.checked)} 
+                        />
+                        <label htmlFor="terminos" className="cursor-pointer">
+                            Acepto los términos y condiciones del seguro
+                        </label>
+                    </div>
+                </div>
+
+                <Button 
+                    label="GENERAR COTIZACIÓN" 
+                    icon="pi pi-check" 
+                    onClick={procesarCotizacion} 
+                    loading={loading}
+                    disabled={!aceptaTerminos}
+                />
             </div>
         );
 
@@ -217,19 +244,19 @@ const Cotizar = () => {
                     <ul className="list-none p-0 m-0">
                         <li className="flex justify-content-between p-2 border-bottom-1 surface-border">
                             <span>Costo Base:</span>
-                            <span className="font-bold">${resultado.costo_base}</span>
+                            <span className="font-bold">${(resultado.costo_base || 0).toFixed(2)}</span>
                         </li>
                         <li className="flex justify-content-between p-2 border-bottom-1 surface-border">
                             <span>Recargos:</span>
-                            <span className="text-red-500 font-bold">+${resultado.recargo}</span>
+                            <span className="text-red-500 font-bold">+${(resultado.recargo || 0).toFixed(2)}</span>
                         </li>
                         <li className="flex justify-content-between p-2 border-bottom-1 surface-border">
                             <span>Descuentos:</span>
-                            <span className="text-green-500 font-bold">-${resultado.descuento}</span>
+                            <span className="text-green-500 font-bold">-${(resultado.descuento || 0).toFixed(2)}</span>
                         </li>
                         <li className="flex justify-content-between p-3 surface-100 mt-2">
                             <span className="text-xl">Total Final:</span>
-                            <span className="text-xl font-bold">${resultado.costo_final}</span>
+                            <span className="text-xl font-bold">${(resultado.costo_final || 0).toFixed(2)}</span>
                         </li>
                     </ul>
                 </div>

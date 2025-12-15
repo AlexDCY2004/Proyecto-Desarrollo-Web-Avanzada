@@ -4,7 +4,7 @@ import { Vehiculo } from "../models/vehiculo.js";
 export const crearVehiculo = async (req, res) => {
     try {
         const { modelo, anio, color, tipo, uso, precio } = req.body;
-        if (!modelo || !anio || !color || !tipo || !uso || !precio) {
+        if (!modelo || !anio || !color || !tipo || !uso || precio == null) {
             return res.status(400).json({ mensaje: "Faltan datos requeridos: modelo, año, color, tipo, uso o precio" });
         }
 
@@ -14,12 +14,19 @@ export const crearVehiculo = async (req, res) => {
             color,
             tipo,
             uso,
-            precio
+            precio: parseFloat(precio)
         });
 
         res.status(201).json(nuevo);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error("Error en crearVehiculo:", err);
+        
+        if (err.name === "SequelizeValidationError") {
+            const errores = err.errors.map(e => e.message);
+            return res.status(400).json({ mensaje: "Error de validación", errores });
+        }
+        
+        res.status(500).json({ mensaje: "Error interno del servidor", error: err.message });
     }
 };
 

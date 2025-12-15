@@ -73,13 +73,26 @@ export const crearCotizacion = async (req, res) => {
             acepta_terminos: true
         });
 
+        // Devolver la cotización completa con datos calculados
         res.status(201).json({
             mensaje: nuevo.estado === 'Rechazada' ? "Cotización rechazada automáticamente" : "Cotización creada exitosamente",
+            estado: nuevo.estado,
+            costo_base: nuevo.costo_base,
+            recargo: nuevo.recargo,
+            descuento: nuevo.descuento,
+            costo_final: nuevo.costo_final,
+            motivo_rechazo: nuevo.motivo_rechazo,
             cotizacion: nuevo
         });
     } catch (err) {
         console.error("Error en crearCotizacion:", err);
-        res.status(500).json({ error: err.message });
+        
+        if (err.name === "SequelizeValidationError") {
+            const errores = err.errors.map(e => e.message);
+            return res.status(400).json({ mensaje: "Error de validación", errores });
+        }
+        
+        res.status(500).json({ mensaje: "Error interno del servidor", error: err.message });
     }
 };
 

@@ -27,10 +27,18 @@ export const crearConductor = async (req, res) => {
 
         res.status(201).json(nuevo);
     } catch (err) {
+        console.error("Error en crearConductor:", err);
+        
         if (err.name === "SequelizeUniqueConstraintError") {
             return res.status(400).json({ mensaje: "El ID del conductor ya existe" });
         }
-        res.status(500).json({ error: err.message });
+        
+        if (err.name === "SequelizeValidationError") {
+            const errores = err.errors.map(e => e.message);
+            return res.status(400).json({ mensaje: "Error de validación", errores });
+        }
+        
+        res.status(500).json({ mensaje: "Error interno del servidor", error: err.message });
     }
 };
 

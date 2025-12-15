@@ -15,7 +15,14 @@ export const crearMetodoPago = async (req, res) => {
 
         res.status(201).json(nuevo);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error("Error en crearMetodoPago:", err);
+        
+        if (err.name === "SequelizeValidationError") {
+            const errores = err.errors.map(e => e.message);
+            return res.status(400).json({ mensaje: "Error de validación", errores });
+        }
+        
+        res.status(500).json({ mensaje: "Error interno del servidor", error: err.message });
     }
 };
 

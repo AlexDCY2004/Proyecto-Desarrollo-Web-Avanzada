@@ -23,7 +23,7 @@ export const Conductor = sequelize.define(
             validate: {
                 notEmpty: { msg: "El nombre no puede estar vacío" },
                 len: { args: [2, 32], msg: "El nombre debe tener entre 2 y 32 caracteres" },
-                isAlpha: { msg: "El nombre solo puede contener letras" }
+                is: { args: /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/, msg: "El nombre solo puede contener letras" }
             }
         },
         apellido: { 
@@ -33,7 +33,7 @@ export const Conductor = sequelize.define(
             validate: {
                 notEmpty: { msg: "El apellido no puede estar vacío" },
                 len: { args: [2, 32], msg: "El apellido debe tener entre 2 y 32 caracteres" },
-                isAlpha: { msg: "El apellido solo puede contener letras" }
+                is: { args: /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/, msg: "El apellido solo puede contener letras" }
             }
         },
         edad: { 

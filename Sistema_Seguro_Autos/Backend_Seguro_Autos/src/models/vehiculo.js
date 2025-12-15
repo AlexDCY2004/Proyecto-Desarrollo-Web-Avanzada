@@ -50,7 +50,7 @@ export const Vehiculo = sequelize.define(
             field: 'VEHICULO_TIPO',
             validate: {
                 notEmpty: { msg: "El tipo de vehículo es requerido" },
-                isIn: { args: [['Sedán', 'SUV', 'Camioneta', 'Auto', 'Compacto']], msg: "Tipo de vehículo no válido. Use: Sedán, SUV, Camioneta, Auto, Compacto" }
+                isIn: { args: [['Sedan', 'Sedán', 'SUV', 'Camioneta', 'Auto', 'Compacto', 'Deportivo']], msg: "Tipo de vehículo no válido" }
             }
         },
         uso: {
@@ -59,7 +59,7 @@ export const Vehiculo = sequelize.define(
             field: 'VEHICULO_USO',
             validate: {
                 notEmpty: { msg: "El uso del vehículo es requerido" },
-                isIn: { args: [['Personal', 'Comercial', 'Particular']], msg: "Uso no válido. Use: Personal, Comercial, Particular" }
+                isIn: { args: [['Personal', 'Comercial', 'Particular', 'Privado']], msg: "Uso no válido. Use: Personal, Comercial, Particular, Privado" }
             }
         },
         precio: {
