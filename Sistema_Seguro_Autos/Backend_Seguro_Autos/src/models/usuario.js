@@ -13,12 +13,27 @@ export const Usuario = sequelize.define(
         nombre: { 
             type: DataTypes.STRING(32), 
             allowNull: false,
-            field: 'USUARIO_NOMBRE'
+            unique: true,
+            field: 'USUARIO_NOMBRE',
+            validate: {
+                notEmpty: { msg: "El nombre de usuario no puede estar vacío" },
+                len: { args: [3, 32], msg: "El nombre de usuario debe tener entre 3 y 32 caracteres" },
+                isAlphanumeric: { msg: "El nombre de usuario solo puede contener letras y números" }
+            }
         },
         contrasenia: { 
-            type: DataTypes.STRING(32), 
+            type: DataTypes.STRING(100), 
             allowNull: false,
-            field: 'USUARIO_CONTRASENIA'
+            field: 'USUARIO_CONTRASENIA',
+            validate: {
+                notEmpty: { msg: "La contraseña no puede estar vacía" },
+                len: { args: [8, 100], msg: "La contraseña debe tener mínimo 8 caracteres" },
+                customValidator(value) {
+                    if (value.includes(' ')) {
+                        throw new Error("La contraseña no puede contener espacios");
+                    }
+                }
+            }
         },
         estado: { 
             type: DataTypes.BOOLEAN, 

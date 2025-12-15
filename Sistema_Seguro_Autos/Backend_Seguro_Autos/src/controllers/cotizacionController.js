@@ -7,10 +7,15 @@ import { MetodoPago } from "../models/metodoPago.js";
 // Crear cotización
 export const crearCotizacion = async (req, res) => {
     try {
-        const { id_usuario, id_conductor, id_vehiculo, id_pago } = req.body;
+        const { id_usuario, id_conductor, id_vehiculo, id_pago, acepta_terminos } = req.body;
 
+        // Validaciones de campos requeridos
         if (id_usuario == null || id_conductor == null || id_vehiculo == null || id_pago == null) {
             return res.status(400).json({ mensaje: "Faltan datos requeridos: id_usuario, id_conductor, id_vehiculo o id_pago" });
+        }
+
+        if (!acepta_terminos) {
+            return res.status(400).json({ mensaje: "Debe aceptar los términos y condiciones" });
         }
 
         // Validar que existan las entidades relacionadas
@@ -24,9 +29,33 @@ export const crearCotizacion = async (req, res) => {
             return res.status(404).json({ mensaje: "Conductor no encontrado" });
         }
 
+        // Validación de edad del conductor
+        if (conductor.edad < 18) {
+            return res.status(403).json({ 
+                mensaje: "El conductor es menor de 18 años. No se puede generar cotización.",
+                estado: "Rechazada"
+            });
+        }
+
+        if (conductor.edad > 75) {
+            return res.status(403).json({ 
+                mensaje: "El conductor es mayor de 75 años. Rechazo automático.",
+                estado: "Rechazada"
+            });
+        }
+
         const vehiculo = await Vehiculo.findByPk(id_vehiculo);
         if (!vehiculo) {
             return res.status(404).json({ mensaje: "Vehículo no encontrado" });
+        }
+
+        // Validación de antigüedad del vehículo
+        const anioActual = new Date().getFullYear();
+        if (anioActual - vehiculo.anio > 20) {
+            return res.status(403).json({ 
+                mensaje: "Vehículos con más de 20 años de antigüedad no pueden ser cotizados.",
+                estado: "Rechazada"
+            });
         }
 
         const metodoPago = await MetodoPago.findByPk(id_pago);
@@ -40,11 +69,16 @@ export const crearCotizacion = async (req, res) => {
             id_vehiculo,
             id_pago,
             fecha_emision: new Date(),
-            fecha_caducidad: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 días
+            fecha_caducidad: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días
+            acepta_terminos: true
         });
 
-        res.status(201).json(nuevo);
+        res.status(201).json({
+            mensaje: nuevo.estado === 'Rechazada' ? "Cotización rechazada automáticamente" : "Cotización creada exitosamente",
+            cotizacion: nuevo
+        });
     } catch (err) {
+        console.error("Error en crearCotizacion:", err);
         res.status(500).json({ error: err.message });
     }
 };
@@ -53,7 +87,12 @@ export const crearCotizacion = async (req, res) => {
 export const listarCotizaciones = async (req, res) => {
     try {
         const cotizaciones = await Cotizacion.findAll({
-            include: [Usuario, Conductor, Vehiculo, MetodoPago]
+            include: [
+                { model: Usuario, attributes: { exclude: ['contrasenia'] } },
+                Conductor,
+                Vehiculo,
+                MetodoPago
+            ]
         });
         res.json(cotizaciones);
     } catch (error) {
@@ -64,13 +103,34 @@ export const listarCotizaciones = async (req, res) => {
 // Buscar cotización por ID
 export const buscarCotizacionId = async (req, res) => {
     try {
-        const cotizacion = await Cotizacion.findByPk(req.params.id, {
-            include: [Usuario, Conductor, Vehiculo, MetodoPago]
+        const { id } = req.params;
+
+        if (isNaN(id)) {
+            return res.status(400).json({ mensaje: "ID inválido" });
+        }
+
+        const cotizacion = await Cotizacion.findByPk(id, {
+            include: [
+                { model: Usuario, attributes: { exclude: ['contrasenia'] } },
+                Conductor,
+                Vehiculo,
+                MetodoPago
+            ]
         });
+        
         if (!cotizacion) {
             return res.status(404).json({ mensaje: "Cotización no encontrada" });
         }
-        res.json(cotizacion);
+
+        // Verificar vigencia de cotización
+        const hoy = new Date();
+        const vencida = cotizacion.fecha_caducidad < hoy;
+
+        res.json({
+            cotizacion,
+            vencida,
+            mensaje: vencida ? "Esta cotización ya ha vencido (máximo 30 días de vigencia)" : null
+        });
     } catch (error) {
         res.status(500).json({ mensaje: "Error al buscar la cotización", error: error.message });
     }
@@ -79,7 +139,13 @@ export const buscarCotizacionId = async (req, res) => {
 // Actualizar cotización
 export const actualizarCotizacion = async (req, res) => {
     try {
-        const cotizacion = await Cotizacion.findByPk(req.params.id);
+        const { id } = req.params;
+
+        if (isNaN(id)) {
+            return res.status(400).json({ mensaje: "ID inválido" });
+        }
+
+        const cotizacion = await Cotizacion.findByPk(id);
         if (!cotizacion) {
             return res.status(404).json({ mensaje: "Cotización no encontrada para actualizar" });
         }
@@ -101,12 +167,20 @@ export const actualizarCotizacion = async (req, res) => {
         if (recargo != null) updates.recargo = recargo;
         if (descuento != null) updates.descuento = descuento;
         if (costo_final != null) updates.costo_final = costo_final;
-        if (estado != null) updates.estado = estado;
+        if (estado != null) {
+            if (!['Pendiente', 'Aprobada', 'Rechazada'].includes(estado)) {
+                return res.status(400).json({ mensaje: "Estado inválido. Use: Pendiente, Aprobada, Rechazada" });
+            }
+            updates.estado = estado;
+        }
         if (motivo_rechazo != null) updates.motivo_rechazo = motivo_rechazo;
         if (fecha_caducidad != null) updates.fecha_caducidad = fecha_caducidad;
 
         await cotizacion.update(updates);
-        return res.json(cotizacion);
+        return res.json({
+            mensaje: "Cotización actualizada correctamente",
+            cotizacion
+        });
     } catch (err) {
         console.error("actualizarCotizacion error:", err);
         return res.status(500).json({ mensaje: "Error al actualizar la cotización", error: err.message });
@@ -116,7 +190,13 @@ export const actualizarCotizacion = async (req, res) => {
 // Eliminar cotización
 export const eliminarCotizacion = async (req, res) => {
     try {
-        const cotizacion = await Cotizacion.findByPk(req.params.id);
+        const { id } = req.params;
+
+        if (isNaN(id)) {
+            return res.status(400).json({ mensaje: "ID inválido" });
+        }
+
+        const cotizacion = await Cotizacion.findByPk(id);
         if (!cotizacion) {
             return res.status(404).json({ mensaje: "Cotización no encontrada para eliminar" });
         }
@@ -128,34 +208,44 @@ export const eliminarCotizacion = async (req, res) => {
     }
 };
 
+// Cambiar estado de cotización
 export const cambiarEstadoCotizacion = async (req, res) => {
     try {
         const { id } = req.params;
-        const { estado, motivo_rechazo } = req.body; // 'Aprobada' o 'Rechazada'
+        const { estado, motivo_rechazo } = req.body;
 
         if (!['Aprobada', 'Rechazada', 'Pendiente'].includes(estado)) {
-            return res.status(400).json({ message: "Estado inválido. Use: Aprobada, Rechazada, Pendiente" });
+            return res.status(400).json({ mensaje: "Estado inválido. Use: Aprobada, Rechazada, Pendiente" });
         }
 
         const cotizacion = await Cotizacion.findByPk(id);
         if (!cotizacion) {
-            return res.status(404).json({ message: "Cotización no encontrada" });
+            return res.status(404).json({ mensaje: "Cotización no encontrada" });
+        }
+
+        // Validar que no esté vencida
+        const hoy = new Date();
+        if (cotizacion.fecha_caducidad < hoy) {
+            return res.status(403).json({ 
+                mensaje: "La cotización ha vencido. No se puede cambiar su estado.",
+                estado: "Rechazada"
+            });
         }
 
         cotizacion.estado = estado;
         if (estado === 'Rechazada' && motivo_rechazo) {
             cotizacion.motivo_rechazo = motivo_rechazo;
+        } else if (estado === 'Aprobada') {
+            cotizacion.motivo_rechazo = null;
         }
 
-        // Usamos save({ hooks: false }) si quisieramos evitar re-validaciones, 
-        // pero aqui esta bien que valide tipos.
-        // OJO: El hook beforeValidate puede sobrescribir el estado si recalculamos.
-        // Para cambio de estado Manual, mejor update directo.
-        await cotizacion.update({ estado, motivo_rechazo });
+        await cotizacion.save({ hooks: false }); // Evitar re-cálculos
 
-        res.json(cotizacion);
-
+        res.json({
+            mensaje: `Cotización ${estado.toLowerCase()} exitosamente`,
+            cotizacion
+        });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ mensaje: "Error al cambiar estado", error: error.message });
     }
 };
